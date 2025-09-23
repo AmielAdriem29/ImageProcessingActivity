@@ -1,0 +1,11 @@
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\bin\Debug\Digital_Imager.exe.config
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\bin\Debug\Digital_Imager.exe
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\bin\Debug\Digital_Imager.pdb
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\obj\Debug\Digital_Imager.csproj.AssemblyReference.cache
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\obj\Debug\Digital_Imager.Form1.resources
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\obj\Debug\Digital_Imager.Properties.Resources.resources
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\obj\Debug\Digital_Imager.csproj.GenerateResource.cache
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\obj\Debug\Digital_Imager.csproj.CoreCompileInputs.cache
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\obj\Debug\Digital_Imager.exe
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\obj\Debug\Digital_Imager.pdb
+C:\Users\acer\Source\Repos\ImageProcessingActivity\Digital_Imager\Digital_Imager\obj\Debug\Digital_Imager.exe.config

@@ -10,17 +10,15 @@ namespace Digital_Imager
     {
         Bitmap loaded, processed, originalImage;
         Bitmap imageB, imageA, resultImage;
-        Bitmap capturedImage; // Store captured webcam image
+        Bitmap capturedImage; 
         OpenFileDialog openFileDialog;
         SaveFileDialog saveFileDialog;
 
-        // OpenCV webcam variables
         private VideoCapture capture;
         private Mat frame;
         private Timer webcamTimer;
         private bool isWebcamRunning = false;
 
-        // Add tracking variable for subtraction mode
         private bool isInSubtractionMode = false;
 
         public Form1()
@@ -33,9 +31,8 @@ namespace Digital_Imager
             saveFileDialog = new SaveFileDialog();
             saveFileDialog.Filter = "JPEG|*.jpg|PNG|*.png|Bitmap|*.bmp";
 
-            // Initialize webcam timer
             webcamTimer = new Timer();
-            webcamTimer.Interval = 33; // ~30 FPS
+            webcamTimer.Interval = 33;
             webcamTimer.Tick += WebcamTimer_Tick;
         }
 
@@ -53,7 +50,6 @@ namespace Digital_Imager
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Set PictureBox properties
             pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
             pictureBox2.SizeMode = PictureBoxSizeMode.StretchImage;
             pictureBox3.SizeMode = PictureBoxSizeMode.StretchImage;
@@ -62,7 +58,6 @@ namespace Digital_Imager
             pictureBox6.SizeMode = PictureBoxSizeMode.StretchImage;
             pictureBox7.SizeMode = PictureBoxSizeMode.StretchImage;
 
-            // Hide subtraction controls initially
             pictureBox3.Visible = false;
             pictureBox4.Visible = false;
             pictureBox5.Visible = false;
@@ -73,13 +68,11 @@ namespace Digital_Imager
             pictureBox6.Visible = false;
             pictureBox7.Visible = false;
 
-            // Initialize menu visibility
-            swtichToToolStripMenuItem.Visible = true;   // "Switch to Subtraction" menu
-            goBackToolStripMenuItem.Visible = false;    // "Go Back" menu
+            swtichToToolStripMenuItem.Visible = true;  
+            goBackToolStripMenuItem.Visible = false;    
             isInSubtractionMode = false;
         }
 
-        // Helper method to ensure bitmap is in correct format
         private Bitmap ConvertToCompatibleBitmap(Bitmap source)
         {
             Bitmap newBitmap = new Bitmap(source.Width, source.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
@@ -90,7 +83,6 @@ namespace Digital_Imager
             return newBitmap;
         }
 
-        // File Menu Handlers
         private void loadImageToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (openFileDialog.ShowDialog() == DialogResult.OK)
@@ -143,14 +135,12 @@ namespace Digital_Imager
             Application.Exit();
         }
 
-        // Basic Process Handlers
         private void basicCopyToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (loaded != null)
             {
                 processed = (Bitmap)loaded.Clone();
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -178,7 +168,6 @@ namespace Digital_Imager
                     }
                 }
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -205,7 +194,6 @@ namespace Digital_Imager
                     }
                 }
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -222,7 +210,6 @@ namespace Digital_Imager
         {
             if (loaded != null)
             {
-                // First convert to grayscale
                 Bitmap grayImage = (Bitmap)loaded.Clone();
                 for (int y = 0; y < grayImage.Height; y++)
                 {
@@ -234,7 +221,6 @@ namespace Digital_Imager
                     }
                 }
 
-                // Calculate histogram
                 int[] histogram = new int[256];
                 for (int y = 0; y < grayImage.Height; y++)
                 {
@@ -245,7 +231,6 @@ namespace Digital_Imager
                     }
                 }
 
-                // Find max value for scaling
                 int maxValue = 0;
                 for (int i = 0; i < 256; i++)
                 {
@@ -253,7 +238,6 @@ namespace Digital_Imager
                         maxValue = histogram[i];
                 }
 
-                // Create histogram image
                 int histWidth = 256;
                 int histHeight = 100;
                 Bitmap histogramImage = new Bitmap(histWidth, histHeight);
@@ -262,7 +246,6 @@ namespace Digital_Imager
                 {
                     g.Clear(Color.White);
 
-                    // Draw histogram bars
                     for (int i = 0; i < 256; i++)
                     {
                         int barHeight = (int)((histogram[i] / (float)maxValue) * histHeight);
@@ -270,7 +253,6 @@ namespace Digital_Imager
                     }
                 }
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = histogramImage;
                 else
@@ -305,7 +287,6 @@ namespace Digital_Imager
                     }
                 }
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -318,7 +299,6 @@ namespace Digital_Imager
             }
         }
 
-        // Convolution Filter Handlers - FIXED to properly set processed bitmap
         private void smoothToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (loaded != null)
@@ -326,7 +306,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.Smooth(processed, 1);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -346,7 +325,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.GaussianBlur(processed);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -366,7 +344,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.Sharpen(processed, 11);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -386,7 +363,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.MeanRemoval(processed, 9);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -406,7 +382,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.EmbossLaplascian(processed);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -426,7 +401,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.EmbossHorzVert(processed);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -446,7 +420,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.EmbossAllDirections(processed);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -466,7 +439,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.EmbossHorizontal(processed);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -486,7 +458,6 @@ namespace Digital_Imager
                 processed = (Bitmap)loaded.Clone();
                 BitmapFilter.EmbossVertical(processed);
 
-                // Display in appropriate pictureBox based on current view
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -499,17 +470,14 @@ namespace Digital_Imager
             }
         }
 
-        // Image Subtraction View Handlers - FIXED
         private void swtichToToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            // Hide normal view and webcam view
             pictureBox1.Visible = false;
             pictureBox2.Visible = false;
             pictureBox6.Visible = false;
             pictureBox7.Visible = false;
             button4.Visible = false;
 
-            // Show subtraction view
             pictureBox3.Visible = true;
             pictureBox4.Visible = true;
             pictureBox5.Visible = true;
@@ -517,19 +485,17 @@ namespace Digital_Imager
             button2.Visible = true;
             button3.Visible = true;
 
-            // Update menu visibility
-            swtichToToolStripMenuItem.Visible = false;  // Hide "Switch to Subtraction"
+            swtichToToolStripMenuItem.Visible = false;  
             cameraToolStripMenuItem.Visible = false;
             convolutionFiltersToolStripMenuItem.Visible = false;
             cameraToolStripMenuItem.Visible = false;
             processToolStripMenuItem.Visible = false;
-            goBackToolStripMenuItem.Visible = true;     // Show "Go Back"
+            goBackToolStripMenuItem.Visible = true;     
             isInSubtractionMode = true;
         }
 
         private void goBackToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            // Hide subtraction view
             pictureBox3.Visible = false;
             pictureBox4.Visible = false;
             pictureBox5.Visible = false;
@@ -537,7 +503,6 @@ namespace Digital_Imager
             button2.Visible = false;
             button3.Visible = false;
 
-            // Show normal view only if webcam is not running
             if (!isWebcamRunning)
             {
                 pictureBox1.Visible = true;
@@ -546,7 +511,6 @@ namespace Digital_Imager
                 pictureBox7.Visible = false;
                 button4.Visible = false;
             }
-            // If webcam is running, keep webcam view visible
             else
             {
                 pictureBox1.Visible = false;
@@ -556,17 +520,15 @@ namespace Digital_Imager
                 button4.Visible = true;
             }
 
-            // Update menu visibility
-            swtichToToolStripMenuItem.Visible = true;   // Show "Switch to Subtraction"
+            swtichToToolStripMenuItem.Visible = true;   
             cameraToolStripMenuItem.Visible = true;
             convolutionFiltersToolStripMenuItem.Visible = true;
             cameraToolStripMenuItem.Visible = true;
             processToolStripMenuItem.Visible = true;
-            goBackToolStripMenuItem.Visible = false;    // Hide "Go Back"
+            goBackToolStripMenuItem.Visible = false;   
             isInSubtractionMode = false;
         }
 
-        // Image Subtraction Button Handlers
         private void button1_Click(object sender, EventArgs e)
         {
             if (openFileDialog.ShowDialog() == DialogResult.OK)
@@ -649,11 +611,10 @@ namespace Digital_Imager
                 if (!isWebcamRunning)
                 {
                     frame = new Mat();
-                    capture = new VideoCapture(0); // 0 for default camera
+                    capture = new VideoCapture(0);
 
                     if (capture.IsOpened())
                     {
-                        // Only show camera view if not in subtraction mode
                         if (!isInSubtractionMode)
                         {
                             pictureBox1.Visible = false;
@@ -706,7 +667,6 @@ namespace Digital_Imager
                 pictureBox7.Visible = false;
                 button4.Visible = false;
 
-                // Only show normal view if not in subtraction mode
                 if (!isInSubtractionMode)
                 {
                     pictureBox1.Visible = true;
@@ -720,23 +680,18 @@ namespace Digital_Imager
 
         private void button4_Click(object sender, EventArgs e)
         {
-            // Capture image from webcam
             if (pictureBox6.Image != null)
             {
-                // Convert to compatible format for processing
                 Bitmap tempBitmap = new Bitmap(pictureBox6.Image);
                 capturedImage = ConvertToCompatibleBitmap(tempBitmap);
                 tempBitmap.Dispose();
 
-                // Display captured image in pictureBox7
                 pictureBox7.Image = capturedImage;
 
-                // Also set as loaded for filter processing
                 loaded = (Bitmap)capturedImage.Clone();
                 originalImage = (Bitmap)loaded.Clone();
 
-                MessageBox.Show("Image captured! Apply filters from Process or Convolution Filters menu. The result will appear in pictureBox7.",
-                    "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Image captured!","Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {
@@ -747,10 +702,8 @@ namespace Digital_Imager
 
         private void pictureBox1_Click(object sender, EventArgs e)
         {
-            // Add any click handling if needed
         }
 
-        // Cleanup on form closing
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (isWebcamRunning)

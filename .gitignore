@@ -1,20 +1,12 @@
-# Ignore Visual Studio files
-.vs/
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-
-# Ignore build results
-[Bb]in/
-[Oo]bj/
-*.exe
-*.pdb
-*.cache
-*.db
-*.vsidx
-
-# Ignore other temporary files
-*.log
-*.lock.json
-*.generated.*
+## Visual Studio temporary files
+   .vs/
+   bin/
+   obj/
+   *.user
+   *.suo
+   packages/
+   
+   ## Visual Studio cache/options
+   .vscode/
+   *.vsidx
+   *.lock

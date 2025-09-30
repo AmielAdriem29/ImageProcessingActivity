@@ -90,9 +90,15 @@
               "Title": "Form1.cs",
               "DocumentMoniker": "C:\\Users\\acer\\source\\repos\\ImageProcessingActivity\\Digital_Imager\\Digital_Imager\\Form1.cs",
               "RelativeDocumentMoniker": "Digital_Imager\\Form1.cs",
+<<<<<<< HEAD
               "ToolTip": "C:\\Users\\acer\\source\\repos\\ImageProcessingActivity\\Digital_Imager\\Digital_Imager\\Form1.cs*",
               "RelativeToolTip": "Digital_Imager\\Form1.cs*",
               "ViewState": "AgIAAF4CAAAAAAAAAAAAAIECAAAAAAAAAAAAAA==",
+=======
+              "ToolTip": "C:\\Users\\acer\\source\\repos\\ImageProcessingActivity\\Digital_Imager\\Digital_Imager\\Form1.cs",
+              "RelativeToolTip": "Digital_Imager\\Form1.cs",
+              "ViewState": "AgIAAKECAAAAAAAAAADwv7UCAAAyAAAAAAAAAA==",
+>>>>>>> origin/main
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-09-23T23:18:24.499Z",
               "EditorCaption": ""

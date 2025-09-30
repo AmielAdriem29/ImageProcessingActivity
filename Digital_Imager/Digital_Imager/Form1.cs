@@ -10,17 +10,27 @@ namespace Digital_Imager
     {
         Bitmap loaded, processed, originalImage;
         Bitmap imageB, imageA, resultImage;
+<<<<<<< HEAD
         Bitmap capturedImage; // Store captured webcam image
         OpenFileDialog openFileDialog;
         SaveFileDialog saveFileDialog;
 
         // OpenCV webcam variables
+=======
+        Bitmap capturedImage; 
+        OpenFileDialog openFileDialog;
+        SaveFileDialog saveFileDialog;
+
+>>>>>>> origin/main
         private VideoCapture capture;
         private Mat frame;
         private Timer webcamTimer;
         private bool isWebcamRunning = false;
 
+<<<<<<< HEAD
         // Add tracking variable for subtraction mode
+=======
+>>>>>>> origin/main
         private bool isInSubtractionMode = false;
 
         public Form1()
@@ -33,9 +43,14 @@ namespace Digital_Imager
             saveFileDialog = new SaveFileDialog();
             saveFileDialog.Filter = "JPEG|*.jpg|PNG|*.png|Bitmap|*.bmp";
 
+<<<<<<< HEAD
             // Initialize webcam timer
             webcamTimer = new Timer();
             webcamTimer.Interval = 33; // ~30 FPS
+=======
+            webcamTimer = new Timer();
+            webcamTimer.Interval = 33;
+>>>>>>> origin/main
             webcamTimer.Tick += WebcamTimer_Tick;
         }
 
@@ -53,7 +68,10 @@ namespace Digital_Imager
 
         private void Form1_Load(object sender, EventArgs e)
         {
+<<<<<<< HEAD
             // Set PictureBox properties
+=======
+>>>>>>> origin/main
             pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
             pictureBox2.SizeMode = PictureBoxSizeMode.StretchImage;
             pictureBox3.SizeMode = PictureBoxSizeMode.StretchImage;
@@ -62,7 +80,10 @@ namespace Digital_Imager
             pictureBox6.SizeMode = PictureBoxSizeMode.StretchImage;
             pictureBox7.SizeMode = PictureBoxSizeMode.StretchImage;
 
+<<<<<<< HEAD
             // Hide subtraction controls initially
+=======
+>>>>>>> origin/main
             pictureBox3.Visible = false;
             pictureBox4.Visible = false;
             pictureBox5.Visible = false;
@@ -73,6 +94,7 @@ namespace Digital_Imager
             pictureBox6.Visible = false;
             pictureBox7.Visible = false;
 
+<<<<<<< HEAD
             // Initialize menu visibility
             swtichToToolStripMenuItem.Visible = true;   // "Switch to Subtraction" menu
             goBackToolStripMenuItem.Visible = false;    // "Go Back" menu
@@ -80,6 +102,13 @@ namespace Digital_Imager
         }
 
         // Helper method to ensure bitmap is in correct format
+=======
+            swtichToToolStripMenuItem.Visible = true;  
+            goBackToolStripMenuItem.Visible = false;    
+            isInSubtractionMode = false;
+        }
+
+>>>>>>> origin/main
         private Bitmap ConvertToCompatibleBitmap(Bitmap source)
         {
             Bitmap newBitmap = new Bitmap(source.Width, source.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
@@ -143,14 +172,337 @@ namespace Digital_Imager
             Application.Exit();
         }
 
+<<<<<<< HEAD
         // Basic Process Handlers
+=======
+>>>>>>> origin/main
         private void basicCopyToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (loaded != null)
             {
                 processed = (Bitmap)loaded.Clone();
 
+<<<<<<< HEAD
                 // Display in appropriate pictureBox based on current view
+=======
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void grayscaleToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                for (int y = 0; y < processed.Height; y++)
+                {
+                    for (int x = 0; x < processed.Width; x++)
+                    {
+                        Color pixel = processed.GetPixel(x, y);
+                        int gray = (int)((pixel.R * 0.3) + (pixel.G * 0.59) + (pixel.B * 0.11));
+                        processed.SetPixel(x, y, Color.FromArgb(gray, gray, gray));
+                    }
+                }
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void colorInversionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                for (int y = 0; y < processed.Height; y++)
+                {
+                    for (int x = 0; x < processed.Width; x++)
+                    {
+                        Color pixel = processed.GetPixel(x, y);
+                        processed.SetPixel(x, y, Color.FromArgb(255 - pixel.R, 255 - pixel.G, 255 - pixel.B));
+                    }
+                }
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void histogramToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                Bitmap grayImage = (Bitmap)loaded.Clone();
+                for (int y = 0; y < grayImage.Height; y++)
+                {
+                    for (int x = 0; x < grayImage.Width; x++)
+                    {
+                        Color pixel = grayImage.GetPixel(x, y);
+                        int gray = (int)((pixel.R * 0.3) + (pixel.G * 0.59) + (pixel.B * 0.11));
+                        grayImage.SetPixel(x, y, Color.FromArgb(gray, gray, gray));
+                    }
+                }
+
+                int[] histogram = new int[256];
+                for (int y = 0; y < grayImage.Height; y++)
+                {
+                    for (int x = 0; x < grayImage.Width; x++)
+                    {
+                        Color pixel = grayImage.GetPixel(x, y);
+                        histogram[pixel.R]++;
+                    }
+                }
+
+                int maxValue = 0;
+                for (int i = 0; i < 256; i++)
+                {
+                    if (histogram[i] > maxValue)
+                        maxValue = histogram[i];
+                }
+
+                int histWidth = 256;
+                int histHeight = 100;
+                Bitmap histogramImage = new Bitmap(histWidth, histHeight);
+
+                using (Graphics g = Graphics.FromImage(histogramImage))
+                {
+                    g.Clear(Color.White);
+
+                    for (int i = 0; i < 256; i++)
+                    {
+                        int barHeight = (int)((histogram[i] / (float)maxValue) * histHeight);
+                        g.DrawLine(Pens.Black, i, histHeight, i, histHeight - barHeight);
+                    }
+                }
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = histogramImage;
+                else
+                    pictureBox2.Image = histogramImage;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void sepiaToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                for (int y = 0; y < processed.Height; y++)
+                {
+                    for (int x = 0; x < processed.Width; x++)
+                    {
+                        Color pixel = processed.GetPixel(x, y);
+                        int tr = (int)(0.393 * pixel.R + 0.769 * pixel.G + 0.189 * pixel.B);
+                        int tg = (int)(0.349 * pixel.R + 0.686 * pixel.G + 0.168 * pixel.B);
+                        int tb = (int)(0.272 * pixel.R + 0.534 * pixel.G + 0.131 * pixel.B);
+
+                        int r = tr > 255 ? 255 : tr;
+                        int g = tg > 255 ? 255 : tg;
+                        int b = tb > 255 ? 255 : tb;
+
+                        processed.SetPixel(x, y, Color.FromArgb(r, g, b));
+                    }
+                }
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void smoothToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.Smooth(processed, 1);
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void gaussianBlurToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.GaussianBlur(processed);
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void sharpenToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.Sharpen(processed, 11);
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void meanRemovalToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.MeanRemoval(processed, 9);
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossLaplascianToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossLaplascian(processed);
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossHorzVertToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossHorzVert(processed);
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossAllDirectionsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossAllDirections(processed);
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossHorizontalToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossHorizontal(processed);
+
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossVerticalToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossVertical(processed);
+
+>>>>>>> origin/main
                 if (isWebcamRunning)
                     pictureBox7.Image = processed;
                 else
@@ -502,14 +854,20 @@ namespace Digital_Imager
         // Image Subtraction View Handlers - FIXED
         private void swtichToToolStripMenuItem_Click(object sender, EventArgs e)
         {
+<<<<<<< HEAD
             // Hide normal view and webcam view
+=======
+>>>>>>> origin/main
             pictureBox1.Visible = false;
             pictureBox2.Visible = false;
             pictureBox6.Visible = false;
             pictureBox7.Visible = false;
             button4.Visible = false;
 
+<<<<<<< HEAD
             // Show subtraction view
+=======
+>>>>>>> origin/main
             pictureBox3.Visible = true;
             pictureBox4.Visible = true;
             pictureBox5.Visible = true;
@@ -517,14 +875,58 @@ namespace Digital_Imager
             button2.Visible = true;
             button3.Visible = true;
 
+<<<<<<< HEAD
             // Update menu visibility
             swtichToToolStripMenuItem.Visible = false;  // Hide "Switch to Subtraction"
+=======
+            swtichToToolStripMenuItem.Visible = false;  
+>>>>>>> origin/main
             cameraToolStripMenuItem.Visible = false;
             convolutionFiltersToolStripMenuItem.Visible = false;
             cameraToolStripMenuItem.Visible = false;
             processToolStripMenuItem.Visible = false;
+<<<<<<< HEAD
             goBackToolStripMenuItem.Visible = true;     // Show "Go Back"
             isInSubtractionMode = true;
+=======
+            goBackToolStripMenuItem.Visible = true;     
+            isInSubtractionMode = true;
+        }
+
+        private void goBackToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            pictureBox3.Visible = false;
+            pictureBox4.Visible = false;
+            pictureBox5.Visible = false;
+            button1.Visible = false;
+            button2.Visible = false;
+            button3.Visible = false;
+
+            if (!isWebcamRunning)
+            {
+                pictureBox1.Visible = true;
+                pictureBox2.Visible = true;
+                pictureBox6.Visible = false;
+                pictureBox7.Visible = false;
+                button4.Visible = false;
+            }
+            else
+            {
+                pictureBox1.Visible = false;
+                pictureBox2.Visible = false;
+                pictureBox6.Visible = true;
+                pictureBox7.Visible = true;
+                button4.Visible = true;
+            }
+
+            swtichToToolStripMenuItem.Visible = true;   
+            cameraToolStripMenuItem.Visible = true;
+            convolutionFiltersToolStripMenuItem.Visible = true;
+            cameraToolStripMenuItem.Visible = true;
+            processToolStripMenuItem.Visible = true;
+            goBackToolStripMenuItem.Visible = false;   
+            isInSubtractionMode = false;
+>>>>>>> origin/main
         }
 
         private void goBackToolStripMenuItem_Click(object sender, EventArgs e)
@@ -645,6 +1047,7 @@ namespace Digital_Imager
         private void startWebcamToolStripMenuItem_Click(object sender, EventArgs e)
         {
             try
+<<<<<<< HEAD
             {
                 if (!isWebcamRunning)
                 {
@@ -767,5 +1170,120 @@ namespace Digital_Imager
             }
             base.OnFormClosing(e);
         }
+=======
+            {
+                if (!isWebcamRunning)
+                {
+                    frame = new Mat();
+                    capture = new VideoCapture(0);
+
+                    if (capture.IsOpened())
+                    {
+                        if (!isInSubtractionMode)
+                        {
+                            pictureBox1.Visible = false;
+                            pictureBox2.Visible = false;
+                        }
+
+                        pictureBox6.Visible = true;
+                        pictureBox7.Visible = true;
+                        button4.Visible = true;
+
+                        webcamTimer.Start();
+                        isWebcamRunning = true;
+                        MessageBox.Show("Webcam started successfully!", "Success",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to open webcam!", "Error",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error starting webcam: " + ex.Message, "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void stopWebcamToolStripMenuItem_Click_1(object sender, EventArgs e)
+        {
+            if (isWebcamRunning)
+            {
+                webcamTimer.Stop();
+
+                if (capture != null)
+                {
+                    capture.Dispose();
+                }
+
+                if (frame != null)
+                {
+                    frame.Dispose();
+                }
+
+                isWebcamRunning = false;
+
+                pictureBox6.Image = null;
+                pictureBox6.Visible = false;
+                pictureBox7.Visible = false;
+                button4.Visible = false;
+
+                if (!isInSubtractionMode)
+                {
+                    pictureBox1.Visible = true;
+                    pictureBox2.Visible = true;
+                }
+
+                MessageBox.Show("Webcam stopped!", "Success",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            if (pictureBox6.Image != null)
+            {
+                Bitmap tempBitmap = new Bitmap(pictureBox6.Image);
+                capturedImage = ConvertToCompatibleBitmap(tempBitmap);
+                tempBitmap.Dispose();
+
+                pictureBox7.Image = capturedImage;
+
+                loaded = (Bitmap)capturedImage.Clone();
+                originalImage = (Bitmap)loaded.Clone();
+
+                MessageBox.Show("Image captured!","Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("No webcam image to capture!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void pictureBox1_Click(object sender, EventArgs e)
+        {
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (isWebcamRunning)
+            {
+                webcamTimer.Stop();
+                if (capture != null)
+                {
+                    capture.Dispose();
+                }
+                if (frame != null)
+                {
+                    frame.Dispose();
+                }
+            }
+            base.OnFormClosing(e);
+        }
+>>>>>>> origin/main
     }
 }

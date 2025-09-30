@@ -1,42 +1,68 @@
-﻿using OpenCvSharp;
-using OpenCvSharp.Extensions;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
-using System.Linq;
-using System.Threading;
 using System.Windows.Forms;
+using OpenCvSharp;
+using OpenCvSharp.Extensions;
 
 namespace Digital_Imager
 {
     public partial class Form1 : Form
     {
-        private VideoCapture videoCapture;
+        Bitmap loaded, processed, originalImage;
+        Bitmap imageB, imageA, resultImage;
+        Bitmap capturedImage; // Store captured webcam image
+        OpenFileDialog openFileDialog;
+        SaveFileDialog saveFileDialog;
+
+        // OpenCV webcam variables
+        private VideoCapture capture;
         private Mat frame;
-        private Thread cameraThread;
+        private Timer webcamTimer;
         private bool isWebcamRunning = false;
-        private bool stopCameraThread = false;
-        private Bitmap capturedImageOriginal = null;
-        private Bitmap capturedImageProcessed = null;
-        private List<CameraInfo> availableCameras = new List<CameraInfo>();
 
-        public class CameraInfo
-        {
-            public int Index { get; set; }
-            public string Name { get; set; }
-            public bool IsWorking { get; set; }
-
-            public override string ToString()
-            {
-                return $"Camera {Index}: {Name}" + (IsWorking ? "" : " (Not responding)");
-            }
-        }
+        // Add tracking variable for subtraction mode
+        private bool isInSubtractionMode = false;
 
         public Form1()
         {
             InitializeComponent();
+
+            openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp;*.gif";
+
+            saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "JPEG|*.jpg|PNG|*.png|Bitmap|*.bmp";
+
+            // Initialize webcam timer
+            webcamTimer = new Timer();
+            webcamTimer.Interval = 33; // ~30 FPS
+            webcamTimer.Tick += WebcamTimer_Tick;
+        }
+
+        private void WebcamTimer_Tick(object sender, EventArgs e)
+        {
+            if (capture != null && capture.IsOpened())
+            {
+                capture.Read(frame);
+                if (!frame.Empty())
+                {
+                    pictureBox6.Image = BitmapConverter.ToBitmap(frame);
+                }
+            }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // Set PictureBox properties
+            pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox2.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox3.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox4.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox5.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox6.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox7.SizeMode = PictureBoxSizeMode.StretchImage;
+
+            // Hide subtraction controls initially
             pictureBox3.Visible = false;
             pictureBox4.Visible = false;
             pictureBox5.Visible = false;
@@ -44,1135 +70,522 @@ namespace Digital_Imager
             button2.Visible = false;
             button3.Visible = false;
             button4.Visible = false;
-            goBackToolStripMenuItem.Visible = false;
+            pictureBox6.Visible = false;
+            pictureBox7.Visible = false;
 
-            HideWebcamControls();
-            frame = new Mat();
+            // Initialize menu visibility
+            swtichToToolStripMenuItem.Visible = true;   // "Switch to Subtraction" menu
+            goBackToolStripMenuItem.Visible = false;    // "Go Back" menu
+            isInSubtractionMode = false;
         }
 
-        private void HideWebcamControls()
+        // Helper method to ensure bitmap is in correct format
+        private Bitmap ConvertToCompatibleBitmap(Bitmap source)
         {
-            if (pictureBox6 != null) pictureBox6.Visible = false;
-            if (pictureBox7 != null) pictureBox7.Visible = false;
+            Bitmap newBitmap = new Bitmap(source.Width, source.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            using (Graphics g = Graphics.FromImage(newBitmap))
+            {
+                g.DrawImage(source, 0, 0);
+            }
+            return newBitmap;
         }
 
-        private void ShowWebcamControls()
-        {
-            try
-            {
-                if (pictureBox6 != null)
-                {
-                    if (pictureBox6.Image != null)
-                    {
-                        pictureBox6.Image.Dispose();
-                        pictureBox6.Image = null;
-                    }
-                    pictureBox6.Visible = true;
-                }
-                if (pictureBox7 != null)
-                {
-                    if (pictureBox7.Image != null)
-                    {
-                        pictureBox7.Image.Dispose();
-                        pictureBox7.Image = null;
-                    }
-                    pictureBox7.Visible = true;
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        private void UpdateCapturedImageDisplay()
-        {
-            if (pictureBox7 != null)
-            {
-                if (capturedImageProcessed != null)
-                {
-                    pictureBox7.Image = capturedImageProcessed;
-                }
-                else if (capturedImageOriginal != null)
-                {
-                    pictureBox7.Image = capturedImageOriginal;
-                }
-                else
-                {
-                    pictureBox7.Image = null;
-                }
-                pictureBox7.SizeMode = PictureBoxSizeMode.Zoom;
-            }
-        }
-
-        private void InitializeWebcam()
-        {
-            try
-            {
-                availableCameras.Clear();
-
-                for (int i = 0; i < 10; i++)
-                {
-                    VideoCapture testCapture = null;
-                    Mat testFrame = null;
-                    try
-                    {
-                        testCapture = new VideoCapture(i);
-                        Thread.Sleep(100);
-
-                        if (testCapture.IsOpened())
-                        {
-                            testFrame = new Mat();
-                            bool canRead = testCapture.Read(testFrame);
-
-                            availableCameras.Add(new CameraInfo
-                            {
-                                Index = i,
-                                Name = $"Camera Device {i}",
-                                IsWorking = canRead && !testFrame.Empty()
-                            });
-                        }
-                    }
-                    catch
-                    {
-                    }
-                    finally
-                    {
-                        try
-                        {
-                            testFrame?.Dispose();
-                        }
-                        catch { }
-
-                        try
-                        {
-                            if (testCapture != null)
-                            {
-                                if (testCapture.IsOpened())
-                                {
-                                    testCapture.Release();
-                                }
-                                testCapture.Dispose();
-                            }
-                        }
-                        catch { }
-
-                        Thread.Sleep(50);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error initializing webcam: " + ex.Message);
-            }
-        }
-
-        private void CameraCapture()
-        {
-            try
-            {
-                while (!stopCameraThread && videoCapture != null && videoCapture.IsOpened())
-                {
-                    try
-                    {
-                        if (stopCameraThread || videoCapture == null)
-                            break;
-
-                        if (videoCapture.Read(frame) && !frame.Empty())
-                        {
-                            Bitmap bitmap = BitmapConverter.ToBitmap(frame);
-
-                            if (pictureBox6 != null && !stopCameraThread)
-                            {
-                                if (pictureBox6.InvokeRequired)
-                                {
-                                    try
-                                    {
-                                        pictureBox6.Invoke(new Action(() =>
-                                        {
-                                            if (!stopCameraThread && pictureBox6 != null)
-                                            {
-                                                if (pictureBox6.Image != null)
-                                                {
-                                                    pictureBox6.Image.Dispose();
-                                                }
-                                                pictureBox6.Image = bitmap;
-                                                pictureBox6.SizeMode = PictureBoxSizeMode.Zoom;
-                                            }
-                                            else
-                                            {
-                                                bitmap?.Dispose();
-                                            }
-                                        }));
-                                    }
-                                    catch (ObjectDisposedException)
-                                    {
-                                        bitmap?.Dispose();
-                                        break;
-                                    }
-                                    catch (InvalidOperationException)
-                                    {
-                                        bitmap?.Dispose();
-                                        break;
-                                    }
-                                }
-                                else if (!stopCameraThread)
-                                {
-                                    if (pictureBox6.Image != null)
-                                    {
-                                        pictureBox6.Image.Dispose();
-                                    }
-                                    pictureBox6.Image = bitmap;
-                                    pictureBox6.SizeMode = PictureBoxSizeMode.Zoom;
-                                }
-                                else
-                                {
-                                    bitmap?.Dispose();
-                                }
-                            }
-                            else
-                            {
-                                bitmap?.Dispose();
-                            }
-                        }
-
-                        if (stopCameraThread)
-                            break;
-
-                        Thread.Sleep(33);
-                    }
-                    catch
-                    {
-                        if (stopCameraThread || videoCapture == null || !videoCapture.IsOpened())
-                            break;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                if (!stopCameraThread)
-                {
-                    try
-                    {
-                        if (this.InvokeRequired)
-                        {
-                            this.Invoke(new Action(() =>
-                            {
-                                MessageBox.Show("Camera error: " + ex.Message);
-                                StopWebcam();
-                            }));
-                        }
-                        else
-                        {
-                            MessageBox.Show("Camera error: " + ex.Message);
-                            StopWebcam();
-                        }
-                    }
-                    catch
-                    {
-                    }
-                }
-            }
-        }
-
-        private void StartWebcam()
-        {
-            try
-            {
-                if (isWebcamRunning)
-                {
-                    StopWebcam();
-                    Thread.Sleep(500);
-                }
-
-                InitializeWebcam();
-
-                if (availableCameras == null || availableCameras.Count == 0)
-                {
-                    MessageBox.Show("No webcam devices found.");
-                    return;
-                }
-
-                CameraInfo selectedCamera = ShowCameraSelectionDialog();
-                if (selectedCamera == null)
-                {
-                    return;
-                }
-
-                if (frame != null && !frame.IsDisposed)
-                {
-                    frame.Dispose();
-                }
-                frame = new Mat();
-
-                int retryCount = 0;
-                bool cameraOpened = false;
-
-                while (retryCount < 3 && !cameraOpened)
-                {
-                    try
-                    {
-                        if (videoCapture != null)
-                        {
-                            try
-                            {
-                                videoCapture.Dispose();
-                            }
-                            catch { }
-                            videoCapture = null;
-                        }
-
-                        videoCapture = new VideoCapture(selectedCamera.Index);
-                        Thread.Sleep(200);
-
-                        if (videoCapture.IsOpened())
-                        {
-                            cameraOpened = true;
-                        }
-                        else
-                        {
-                            videoCapture?.Dispose();
-                            videoCapture = null;
-                            retryCount++;
-                            if (retryCount < 3) Thread.Sleep(300);
-                        }
-                    }
-                    catch
-                    {
-                        try
-                        {
-                            videoCapture?.Dispose();
-                        }
-                        catch { }
-                        videoCapture = null;
-                        retryCount++;
-                        if (retryCount < 3) Thread.Sleep(300);
-                    }
-                }
-
-                if (!cameraOpened || videoCapture == null)
-                {
-                    MessageBox.Show($"Failed to open camera {selectedCamera.Index} after {retryCount} attempts. Try selecting a different camera or restart the application.");
-                    return;
-                }
-
-                try
-                {
-                    videoCapture.Set(VideoCaptureProperties.FrameWidth, 640);
-                    videoCapture.Set(VideoCaptureProperties.FrameHeight, 480);
-                    videoCapture.Set(VideoCaptureProperties.Fps, 30);
-                }
-                catch
-                {
-                }
-
-                try
-                {
-                    Mat testFrame = new Mat();
-                    bool canRead = videoCapture.Read(testFrame);
-                    if (!canRead || testFrame.Empty())
-                    {
-                        testFrame.Dispose();
-                        throw new Exception("Camera cannot capture frames");
-                    }
-                    testFrame.Dispose();
-                }
-                catch (Exception testEx)
-                {
-                    MessageBox.Show($"Camera {selectedCamera.Index} cannot capture frames: {testEx.Message}");
-                    videoCapture?.Dispose();
-                    videoCapture = null;
-                    return;
-                }
-
-                isWebcamRunning = true;
-                stopCameraThread = false;
-
-                try
-                {
-                    cameraThread = new Thread(CameraCapture)
-                    {
-                        IsBackground = true,
-                        Name = "CameraThread"
-                    };
-                    cameraThread.Start();
-                }
-                catch (Exception threadEx)
-                {
-                    MessageBox.Show($"Error starting camera thread: {threadEx.Message}");
-
-                    isWebcamRunning = false;
-                    stopCameraThread = true;
-                    videoCapture?.Dispose();
-                    videoCapture = null;
-                    return;
-                }
-
-                ShowWebcamControls();
-                button4.Visible = true;
-                loadImageToolStripMenuItem.Visible = false;
-
-                MessageBox.Show($"Camera {selectedCamera.Index} started successfully!");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error starting webcam: {ex.Message}");
-                isWebcamRunning = false;
-                stopCameraThread = true;
-
-                try
-                {
-                    videoCapture?.Dispose();
-                }
-                catch { }
-                videoCapture = null;
-            }
-        }
-
-        private CameraInfo ShowCameraSelectionDialog()
-        {
-            Form cameraForm = new Form();
-            cameraForm.Text = "Select Camera Device";
-            cameraForm.Size = new System.Drawing.Size(450, 300);
-            cameraForm.StartPosition = FormStartPosition.CenterParent;
-            cameraForm.FormBorderStyle = FormBorderStyle.FixedDialog;
-            cameraForm.MaximizeBox = false;
-            cameraForm.MinimizeBox = false;
-
-            Label label = new Label();
-            label.Text = "Available camera devices (double-click to select):";
-            label.Location = new System.Drawing.Point(20, 20);
-            label.Size = new System.Drawing.Size(400, 20);
-            cameraForm.Controls.Add(label);
-
-            ListBox listBox = new ListBox();
-            listBox.Location = new System.Drawing.Point(20, 50);
-            listBox.Size = new System.Drawing.Size(390, 150);
-
-            foreach (var camera in availableCameras)
-            {
-                listBox.Items.Add(camera);
-            }
-
-            if (listBox.Items.Count > 0)
-            {
-                var workingCamera = availableCameras.FirstOrDefault(c => c.IsWorking);
-                if (workingCamera != null)
-                {
-                    listBox.SelectedItem = workingCamera;
-                }
-                else
-                {
-                    listBox.SelectedIndex = 0;
-                }
-            }
-
-            listBox.DoubleClick += (sender, e) =>
-            {
-                if (listBox.SelectedIndex >= 0)
-                {
-                    cameraForm.DialogResult = DialogResult.OK;
-                    cameraForm.Close();
-                }
-            };
-
-            cameraForm.Controls.Add(listBox);
-
-            Button okButton = new Button();
-            okButton.Text = "OK";
-            okButton.Location = new System.Drawing.Point(200, 220);
-            okButton.Size = new System.Drawing.Size(75, 25);
-            okButton.DialogResult = DialogResult.OK;
-            okButton.Click += (sender, e) =>
-            {
-                if (listBox.SelectedIndex >= 0)
-                {
-                    cameraForm.DialogResult = DialogResult.OK;
-                    cameraForm.Close();
-                }
-            };
-            cameraForm.Controls.Add(okButton);
-
-            Button cancelButton = new Button();
-            cancelButton.Text = "Cancel";
-            cancelButton.Location = new System.Drawing.Point(285, 220);
-            cancelButton.Size = new System.Drawing.Size(75, 25);
-            cancelButton.DialogResult = DialogResult.Cancel;
-            cameraForm.Controls.Add(cancelButton);
-
-            cameraForm.AcceptButton = okButton;
-            cameraForm.CancelButton = cancelButton;
-
-            if (cameraForm.ShowDialog() == DialogResult.OK && listBox.SelectedIndex >= 0)
-            {
-                return (CameraInfo)listBox.SelectedItem;
-            }
-
-            return null;
-        }
-
-        private void StopWebcam()
-        {
-            try
-            {
-                stopCameraThread = true;
-                isWebcamRunning = false;
-
-                if (cameraThread != null && cameraThread.IsAlive)
-                {
-                    if (!cameraThread.Join(3000))
-                    {
-                    }
-                    cameraThread = null;
-                }
-
-                if (videoCapture != null)
-                {
-                    try
-                    {
-                        if (videoCapture.IsOpened())
-                        {
-                            videoCapture.Release();
-                        }
-                    }
-                    catch { }
-
-                    try
-                    {
-                        videoCapture.Dispose();
-                    }
-                    catch { }
-
-                    videoCapture = null;
-                }
-
-                if (frame != null && !frame.IsDisposed)
-                {
-                    try
-                    {
-                        frame.Dispose();
-                        frame = new Mat();
-                    }
-                    catch
-                    {
-                        frame = new Mat();
-                    }
-                }
-
-                if (this.InvokeRequired)
-                {
-                    this.Invoke(new Action(() => CleanupUI()));
-                }
-                else
-                {
-                    CleanupUI();
-                }
-
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-                Thread.Sleep(100);
-            }
-            catch
-            {
-                isWebcamRunning = false;
-                stopCameraThread = true;
-                videoCapture = null;
-                cameraThread = null;
-
-                try
-                {
-                    if (frame != null && !frame.IsDisposed)
-                    {
-                        frame.Dispose();
-                    }
-                }
-                catch { }
-                frame = new Mat();
-
-                if (this.InvokeRequired)
-                {
-                    this.Invoke(new Action(() => CleanupUI()));
-                }
-                else
-                {
-                    CleanupUI();
-                }
-            }
-        }
-
-        private void CleanupUI()
-        {
-            try
-            {
-                if (pictureBox6 != null)
-                {
-                    if (pictureBox6.Image != null)
-                    {
-                        pictureBox6.Image.Dispose();
-                        pictureBox6.Image = null;
-                    }
-                    pictureBox6.Visible = false;
-                    pictureBox6.Refresh();
-                }
-
-                if (pictureBox7 != null)
-                {
-                    if (pictureBox7.Image != null)
-                    {
-                        pictureBox7.Image.Dispose();
-                        pictureBox7.Image = null;
-                    }
-                    pictureBox7.Visible = false;
-                }
-
-                button4.Visible = false;
-                loadImageToolStripMenuItem.Visible = true;
-
-                if (capturedImageOriginal != null)
-                {
-                    capturedImageOriginal.Dispose();
-                    capturedImageOriginal = null;
-                }
-                if (capturedImageProcessed != null)
-                {
-                    capturedImageProcessed.Dispose();
-                    capturedImageProcessed = null;
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        private void CaptureWebcamImage()
-        {
-            try
-            {
-                if (videoCapture != null && videoCapture.IsOpened() && isWebcamRunning)
-                {
-                    Mat captureFrame = new Mat();
-                    if (videoCapture.Read(captureFrame) && !captureFrame.Empty())
-                    {
-                        capturedImageOriginal = BitmapConverter.ToBitmap(captureFrame);
-
-                        if (capturedImageProcessed != null)
-                        {
-                            capturedImageProcessed.Dispose();
-                            capturedImageProcessed = null;
-                        }
-
-                        UpdateCapturedImageDisplay();
-                        MessageBox.Show("Image captured successfully!");
-                    }
-                    else
-                    {
-                        MessageBox.Show("Failed to capture image from webcam.");
-                    }
-                    captureFrame.Dispose();
-                }
-                else
-                {
-                    MessageBox.Show("Webcam is not running. Please start webcam first.");
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error capturing image: " + ex.Message);
-            }
-        }
-
-        private void startWebcamToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            StartWebcam();
-        }
-
-        private void stopWebcamToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            StopWebcam();
-        }
-
-        private void captureImageToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            CaptureWebcamImage();
-        }
-
-        private void resetImageToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (pictureBox3.Visible)
-            {
-                if (pictureBox3.Image != null) { pictureBox3.Image.Dispose(); pictureBox3.Image = null; }
-                if (pictureBox4.Image != null) { pictureBox4.Image.Dispose(); pictureBox4.Image = null; }
-                if (pictureBox5.Image != null) { pictureBox5.Image.Dispose(); pictureBox5.Image = null; }
-            }
-            else
-            {
-                if (pictureBox1.Image != null) { pictureBox1.Image.Dispose(); pictureBox1.Image = null; }
-                if (pictureBox2.Image != null) { pictureBox2.Image.Dispose(); pictureBox2.Image = null; }
-            }
-
-            if (pictureBox6 != null && pictureBox6.Image != null)
-            {
-                pictureBox6.Image.Dispose();
-                pictureBox6.Image = null;
-            }
-            if (pictureBox7 != null && pictureBox7.Image != null)
-            {
-                pictureBox7.Image.Dispose();
-                pictureBox7.Image = null;
-            }
-
-            if (capturedImageOriginal != null)
-            {
-                capturedImageOriginal.Dispose();
-                capturedImageOriginal = null;
-            }
-            if (capturedImageProcessed != null)
-            {
-                capturedImageProcessed.Dispose();
-                capturedImageProcessed = null;
-            }
-        }
-
+        // File Menu Handlers
         private void loadImageToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (isWebcamRunning)
+            if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                StopWebcam();
-            }
-
-            OpenFileDialog openFile = new OpenFileDialog();
-            openFile.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp;*.gif|All Files|*.*";
-            if (openFile.ShowDialog() == DialogResult.OK)
-            {
-                if (pictureBox1.Image != null)
-                {
-                    pictureBox1.Image.Dispose();
-                }
-                pictureBox1.Image = new Bitmap(openFile.FileName);
-                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-            }
-        }
-
-        private void grayscaleToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Image sourceImage = null;
-            PictureBox targetPictureBox = null;
-
-            if (capturedImageOriginal != null)
-            {
-                sourceImage = capturedImageOriginal;
-            }
-            else if (pictureBox1.Image != null)
-            {
-                sourceImage = pictureBox1.Image;
-                targetPictureBox = pictureBox2;
-            }
-
-            if (sourceImage == null)
-            {
-                MessageBox.Show("Please load an image first.");
-                return;
-            }
-
-            Bitmap bmp = new Bitmap(sourceImage);
-            for (int y = 0; y < bmp.Height; y++)
-            {
-                for (int x = 0; x < bmp.Width; x++)
-                {
-                    Color pixelColor = bmp.GetPixel(x, y);
-                    int grayValue = (int)(pixelColor.R + pixelColor.G + pixelColor.B) / 3;
-                    Color grayColor = Color.FromArgb(grayValue, grayValue, grayValue);
-                    bmp.SetPixel(x, y, grayColor);
-                }
-            }
-
-            if (capturedImageOriginal != null)
-            {
-                if (capturedImageProcessed != null)
-                {
-                    capturedImageProcessed.Dispose();
-                }
-                capturedImageProcessed = bmp;
-                UpdateCapturedImageDisplay();
-            }
-            else if (targetPictureBox != null)
-            {
-                if (targetPictureBox.Image != null)
-                {
-                    targetPictureBox.Image.Dispose();
-                }
-                targetPictureBox.Image = bmp;
-                targetPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
-            }
-        }
-
-        private void pictureBox1_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void basicCopyToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Image sourceImage = null;
-            PictureBox targetPictureBox = null;
-
-            if (capturedImageOriginal != null)
-            {
-                sourceImage = capturedImageOriginal;
-            }
-            else if (pictureBox1.Image != null)
-            {
-                sourceImage = pictureBox1.Image;
-                targetPictureBox = pictureBox2;
-            }
-
-            if (sourceImage == null)
-            {
-                MessageBox.Show("Please load an image first.");
-                return;
-            }
-
-            Bitmap bmp = new Bitmap(sourceImage);
-            for (int y = 0; y < bmp.Height; y++)
-            {
-                for (int x = 0; x < bmp.Width; x++)
-                {
-                    Color pixelColor = bmp.GetPixel(x, y);
-                    bmp.SetPixel(x, y, pixelColor);
-                }
-            }
-
-            if (capturedImageOriginal != null)
-            {
-                if (capturedImageProcessed != null)
-                {
-                    capturedImageProcessed.Dispose();
-                }
-                capturedImageProcessed = bmp;
-                UpdateCapturedImageDisplay();
-            }
-            else if (targetPictureBox != null)
-            {
-                if (targetPictureBox.Image != null)
-                {
-                    targetPictureBox.Image.Dispose();
-                }
-                targetPictureBox.Image = bmp;
-                targetPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
-            }
-        }
-
-        private void colorInversionToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Image sourceImage = null;
-            PictureBox targetPictureBox = null;
-
-            if (capturedImageOriginal != null)
-            {
-                sourceImage = capturedImageOriginal;
-            }
-            else if (pictureBox1.Image != null)
-            {
-                sourceImage = pictureBox1.Image;
-                targetPictureBox = pictureBox2;
-            }
-
-            if (sourceImage == null)
-            {
-                MessageBox.Show("Please load an image first.");
-                return;
-            }
-
-            Bitmap bmp = new Bitmap(sourceImage);
-            for (int y = 0; y < bmp.Height; y++)
-            {
-                for (int x = 0; x < bmp.Width; x++)
-                {
-                    Color pixelColor = bmp.GetPixel(x, y);
-                    int r = Math.Min(255, Math.Max(0, 255 - pixelColor.R));
-                    int g = Math.Min(255, Math.Max(0, 255 - pixelColor.G));
-                    int b = Math.Min(255, Math.Max(0, 255 - pixelColor.B));
-                    Color invertedColor = Color.FromArgb(r, g, b);
-                    bmp.SetPixel(x, y, invertedColor);
-                }
-            }
-
-            if (capturedImageOriginal != null)
-            {
-                if (capturedImageProcessed != null)
-                {
-                    capturedImageProcessed.Dispose();
-                }
-                capturedImageProcessed = bmp;
-                UpdateCapturedImageDisplay();
-            }
-            else if (targetPictureBox != null)
-            {
-                if (targetPictureBox.Image != null)
-                {
-                    targetPictureBox.Image.Dispose();
-                }
-                targetPictureBox.Image = bmp;
-                targetPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
-            }
-        }
-
-        private void histogramToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Image sourceImage = null;
-            PictureBox targetPictureBox = null;
-
-            if (capturedImageOriginal != null)
-            {
-                sourceImage = capturedImageOriginal;
-            }
-            else if (pictureBox1.Image != null)
-            {
-                sourceImage = pictureBox1.Image;
-                targetPictureBox = pictureBox2;
-            }
-
-            if (sourceImage == null)
-            {
-                MessageBox.Show("Please load an image first.");
-                return;
-            }
-
-            Bitmap bmp = new Bitmap(sourceImage);
-            int[] hist = new int[256];
-
-            for (int y = 0; y < bmp.Height; y++)
-            {
-                for (int x = 0; x < bmp.Width; x++)
-                {
-                    Color pixelColor = bmp.GetPixel(x, y);
-                    int grayValue = (int)(pixelColor.R + pixelColor.G + pixelColor.B) / 3;
-                    hist[grayValue]++;
-                }
-            }
-
-            int histWidth = 256;
-            int histHeight = 200;
-            int max = hist.Max();
-
-            if (max == 0) max = 1;
-
-            Bitmap histImage = new Bitmap(histWidth, histHeight);
-            using (Graphics g = Graphics.FromImage(histImage))
-            {
-                g.Clear(Color.White);
-
-                for (int i = 0; i < 256; i++)
-                {
-                    int val = (int)((hist[i] / (float)max) * histHeight);
-                    g.DrawLine(Pens.Black, i, histHeight, i, histHeight - val);
-                }
-            }
-
-            if (capturedImageOriginal != null)
-            {
-                if (capturedImageProcessed != null)
-                {
-                    capturedImageProcessed.Dispose();
-                }
-                capturedImageProcessed = histImage;
-                UpdateCapturedImageDisplay();
-            }
-            else if (targetPictureBox != null)
-            {
-                if (targetPictureBox.Image != null)
-                {
-                    targetPictureBox.Image.Dispose();
-                }
-                targetPictureBox.Image = histImage;
-                targetPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
-            }
-        }
-
-        private void sepiaToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Image sourceImage = null;
-            PictureBox targetPictureBox = null;
-
-            if (capturedImageOriginal != null)
-            {
-                sourceImage = capturedImageOriginal;
-            }
-            else if (pictureBox1.Image != null)
-            {
-                sourceImage = pictureBox1.Image;
-                targetPictureBox = pictureBox2;
-            }
-
-            if (sourceImage == null)
-            {
-                MessageBox.Show("Please load an image first.");
-                return;
-            }
-
-            Bitmap bmp = new Bitmap(sourceImage);
-            for (int y = 0; y < bmp.Height; y++)
-            {
-                for (int x = 0; x < bmp.Width; x++)
-                {
-                    Color pixelColor = bmp.GetPixel(x, y);
-                    int newR = (int)Math.Min(255, ((0.393 * pixelColor.R) + (0.769 * pixelColor.G) + (0.189 * pixelColor.B)));
-                    int newG = (int)Math.Min(255, ((0.349 * pixelColor.R) + (0.686 * pixelColor.G) + (0.168 * pixelColor.B)));
-                    int newB = (int)Math.Min(255, ((0.272 * pixelColor.R) + (0.534 * pixelColor.G) + (0.131 * pixelColor.B)));
-
-                    Color sepiaColor = Color.FromArgb(newR, newG, newB);
-                    bmp.SetPixel(x, y, sepiaColor);
-                }
-            }
-
-            if (capturedImageOriginal != null)
-            {
-                if (capturedImageProcessed != null)
-                {
-                    capturedImageProcessed.Dispose();
-                }
-                capturedImageProcessed = bmp;
-                UpdateCapturedImageDisplay();
-            }
-            else if (targetPictureBox != null)
-            {
-                if (targetPictureBox.Image != null)
-                {
-                    targetPictureBox.Image.Dispose();
-                }
-                targetPictureBox.Image = bmp;
-                targetPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
+                Bitmap tempBitmap = new Bitmap(openFileDialog.FileName);
+                loaded = ConvertToCompatibleBitmap(tempBitmap);
+                tempBitmap.Dispose();
+                originalImage = (Bitmap)loaded.Clone();
+                pictureBox1.Image = loaded;
             }
         }
 
         private void saveImageToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Image imageToSave = null;
-
-            if (capturedImageProcessed != null)
+            if (processed != null)
             {
-                imageToSave = capturedImageProcessed;
-            }
-            else if (capturedImageOriginal != null)
-            {
-                imageToSave = capturedImageOriginal;
-            }
-            else if (pictureBox5.Visible && pictureBox5.Image != null)
-            {
-                imageToSave = pictureBox5.Image;
-            }
-            else if (pictureBox2.Visible && pictureBox2.Image != null)
-            {
-                imageToSave = pictureBox2.Image;
-            }
-            else if (pictureBox1.Image != null)
-            {
-                imageToSave = pictureBox1.Image;
-            }
-
-            if (imageToSave == null)
-            {
-                MessageBox.Show("No image to save. Please process or load an image first.");
-                return;
-            }
-
-            using (SaveFileDialog sfd = new SaveFileDialog())
-            {
-                sfd.Filter = "PNG Image|*.png|JPEG Image|*.jpg|Bitmap Image|*.bmp";
-                sfd.Title = "Save Image As";
-
-                if (sfd.ShowDialog() == DialogResult.OK)
+                if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    ImageFormat format = ImageFormat.Png;
-
-                    switch (Path.GetExtension(sfd.FileName).ToLower())
-                    {
-                        case ".jpg":
-                            format = ImageFormat.Jpeg;
-                            break;
-                        case ".bmp":
-                            format = ImageFormat.Bmp;
-                            break;
-                    }
-
-                    try
-                    {
-                        imageToSave.Save(sfd.FileName, format);
-                        MessageBox.Show("Image saved successfully!");
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error saving image: {ex.Message}");
-                    }
+                    processed.Save(saveFileDialog.FileName);
+                    MessageBox.Show("Image saved successfully!", "Success",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
+            else
+            {
+                MessageBox.Show("No processed image to save!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void resetImageToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            pictureBox1.Image = null;
+            pictureBox2.Image = null;
+            pictureBox3.Image = null;
+            pictureBox4.Image = null;
+            pictureBox5.Image = null;
+            pictureBox7.Image = null;
+            loaded = null;
+            processed = null;
+            originalImage = null;
+            imageA = null;
+            imageB = null;
+            resultImage = null;
+            capturedImage = null;
         }
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (isWebcamRunning)
-            {
-                StopWebcam();
-            }
             Application.Exit();
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        // Basic Process Handlers
+        private void basicCopyToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            InitializeWebcam();
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
+        private void grayscaleToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                for (int y = 0; y < processed.Height; y++)
+                {
+                    for (int x = 0; x < processed.Width; x++)
+                    {
+                        Color pixel = processed.GetPixel(x, y);
+                        int gray = (int)((pixel.R * 0.3) + (pixel.G * 0.59) + (pixel.B * 0.11));
+                        processed.SetPixel(x, y, Color.FromArgb(gray, gray, gray));
+                    }
+                }
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void colorInversionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                for (int y = 0; y < processed.Height; y++)
+                {
+                    for (int x = 0; x < processed.Width; x++)
+                    {
+                        Color pixel = processed.GetPixel(x, y);
+                        processed.SetPixel(x, y, Color.FromArgb(255 - pixel.R, 255 - pixel.G, 255 - pixel.B));
+                    }
+                }
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void histogramToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                // First convert to grayscale
+                Bitmap grayImage = (Bitmap)loaded.Clone();
+                for (int y = 0; y < grayImage.Height; y++)
+                {
+                    for (int x = 0; x < grayImage.Width; x++)
+                    {
+                        Color pixel = grayImage.GetPixel(x, y);
+                        int gray = (int)((pixel.R * 0.3) + (pixel.G * 0.59) + (pixel.B * 0.11));
+                        grayImage.SetPixel(x, y, Color.FromArgb(gray, gray, gray));
+                    }
+                }
+
+                // Calculate histogram
+                int[] histogram = new int[256];
+                for (int y = 0; y < grayImage.Height; y++)
+                {
+                    for (int x = 0; x < grayImage.Width; x++)
+                    {
+                        Color pixel = grayImage.GetPixel(x, y);
+                        histogram[pixel.R]++;
+                    }
+                }
+
+                // Find max value for scaling
+                int maxValue = 0;
+                for (int i = 0; i < 256; i++)
+                {
+                    if (histogram[i] > maxValue)
+                        maxValue = histogram[i];
+                }
+
+                // Create histogram image
+                int histWidth = 256;
+                int histHeight = 100;
+                Bitmap histogramImage = new Bitmap(histWidth, histHeight);
+
+                using (Graphics g = Graphics.FromImage(histogramImage))
+                {
+                    g.Clear(Color.White);
+
+                    // Draw histogram bars
+                    for (int i = 0; i < 256; i++)
+                    {
+                        int barHeight = (int)((histogram[i] / (float)maxValue) * histHeight);
+                        g.DrawLine(Pens.Black, i, histHeight, i, histHeight - barHeight);
+                    }
+                }
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = histogramImage;
+                else
+                    pictureBox2.Image = histogramImage;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void sepiaToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                for (int y = 0; y < processed.Height; y++)
+                {
+                    for (int x = 0; x < processed.Width; x++)
+                    {
+                        Color pixel = processed.GetPixel(x, y);
+                        int tr = (int)(0.393 * pixel.R + 0.769 * pixel.G + 0.189 * pixel.B);
+                        int tg = (int)(0.349 * pixel.R + 0.686 * pixel.G + 0.168 * pixel.B);
+                        int tb = (int)(0.272 * pixel.R + 0.534 * pixel.G + 0.131 * pixel.B);
+
+                        int r = tr > 255 ? 255 : tr;
+                        int g = tg > 255 ? 255 : tg;
+                        int b = tb > 255 ? 255 : tb;
+
+                        processed.SetPixel(x, y, Color.FromArgb(r, g, b));
+                    }
+                }
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Convolution Filter Handlers - FIXED to properly set processed bitmap
+        private void smoothToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.Smooth(processed, 1);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void gaussianBlurToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.GaussianBlur(processed);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void sharpenToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.Sharpen(processed, 11);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void meanRemovalToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.MeanRemoval(processed, 9);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossLaplascianToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossLaplascian(processed);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossHorzVertToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossHorzVert(processed);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossAllDirectionsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossAllDirections(processed);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossHorizontalToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossHorizontal(processed);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void embossVerticalToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (loaded != null)
+            {
+                processed = (Bitmap)loaded.Clone();
+                BitmapFilter.EmbossVertical(processed);
+
+                // Display in appropriate pictureBox based on current view
+                if (isWebcamRunning)
+                    pictureBox7.Image = processed;
+                else
+                    pictureBox2.Image = processed;
+            }
+            else
+            {
+                MessageBox.Show("Please load an image first!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Image Subtraction View Handlers - FIXED
         private void swtichToToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (isWebcamRunning)
-            {
-                StopWebcam();
-            }
-
+            // Hide normal view and webcam view
             pictureBox1.Visible = false;
             pictureBox2.Visible = false;
+            pictureBox6.Visible = false;
+            pictureBox7.Visible = false;
+            button4.Visible = false;
+
+            // Show subtraction view
             pictureBox3.Visible = true;
             pictureBox4.Visible = true;
             pictureBox5.Visible = true;
-
             button1.Visible = true;
             button2.Visible = true;
             button3.Visible = true;
 
-            processToolStripMenuItem.Visible = false;
-            swtichToToolStripMenuItem.Visible = false;
-            loadImageToolStripMenuItem.Visible = false;
+            // Update menu visibility
+            swtichToToolStripMenuItem.Visible = false;  // Hide "Switch to Subtraction"
             cameraToolStripMenuItem.Visible = false;
-            goBackToolStripMenuItem.Visible = true;
+            convolutionFiltersToolStripMenuItem.Visible = false;
+            cameraToolStripMenuItem.Visible = false;
+            processToolStripMenuItem.Visible = false;
+            goBackToolStripMenuItem.Visible = true;     // Show "Go Back"
+            isInSubtractionMode = true;
         }
 
+        private void goBackToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // Hide subtraction view
+            pictureBox3.Visible = false;
+            pictureBox4.Visible = false;
+            pictureBox5.Visible = false;
+            button1.Visible = false;
+            button2.Visible = false;
+            button3.Visible = false;
+
+            // Show normal view only if webcam is not running
+            if (!isWebcamRunning)
+            {
+                pictureBox1.Visible = true;
+                pictureBox2.Visible = true;
+                pictureBox6.Visible = false;
+                pictureBox7.Visible = false;
+                button4.Visible = false;
+            }
+            // If webcam is running, keep webcam view visible
+            else
+            {
+                pictureBox1.Visible = false;
+                pictureBox2.Visible = false;
+                pictureBox6.Visible = true;
+                pictureBox7.Visible = true;
+                button4.Visible = true;
+            }
+
+            // Update menu visibility
+            swtichToToolStripMenuItem.Visible = true;   // Show "Switch to Subtraction"
+            cameraToolStripMenuItem.Visible = true;
+            convolutionFiltersToolStripMenuItem.Visible = true;
+            cameraToolStripMenuItem.Visible = true;
+            processToolStripMenuItem.Visible = true;
+            goBackToolStripMenuItem.Visible = false;    // Hide "Go Back"
+            isInSubtractionMode = false;
+        }
+
+        // Image Subtraction Button Handlers
         private void button1_Click(object sender, EventArgs e)
         {
-            OpenFileDialog openFile = new OpenFileDialog();
-            openFile.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp;*.gif|All Files|*.*";
-            if (openFile.ShowDialog() == DialogResult.OK)
+            if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                if (pictureBox3.Image != null)
-                {
-                    pictureBox3.Image.Dispose();
-                }
-                pictureBox3.Image = new Bitmap(openFile.FileName);
-                pictureBox3.SizeMode = PictureBoxSizeMode.Zoom;
+                Bitmap tempBitmap = new Bitmap(openFileDialog.FileName);
+                imageB = ConvertToCompatibleBitmap(tempBitmap);
+                tempBitmap.Dispose();
+                pictureBox3.Image = imageB;
             }
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            OpenFileDialog openFile = new OpenFileDialog();
-            openFile.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp;*.gif|All Files|*.*";
-            if (openFile.ShowDialog() == DialogResult.OK)
+            if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                if (pictureBox4.Image != null)
-                {
-                    pictureBox4.Image.Dispose();
-                }
-                pictureBox4.Image = new Bitmap(openFile.FileName);
-                pictureBox4.SizeMode = PictureBoxSizeMode.Zoom;
+                Bitmap tempBitmap = new Bitmap(openFileDialog.FileName);
+                imageA = ConvertToCompatibleBitmap(tempBitmap);
+                tempBitmap.Dispose();
+                pictureBox4.Image = imageA;
             }
         }
 
@@ -1227,48 +640,132 @@ namespace Digital_Imager
             imageA.Dispose();
         }
 
-        private void goBackToolStripMenuItem_Click(object sender, EventArgs e)
+
+        // Camera Handlers with OpenCV - UPDATED
+        private void startWebcamToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            pictureBox1.Visible = true;
-            pictureBox2.Visible = true;
-            pictureBox3.Visible = false;
-            pictureBox4.Visible = false;
-            pictureBox5.Visible = false;
-
-            button1.Visible = false;
-            button2.Visible = false;
-            button3.Visible = false;
-
-            processToolStripMenuItem.Visible = true;
-            swtichToToolStripMenuItem.Visible = true;
-            loadImageToolStripMenuItem.Visible = true;
-            cameraToolStripMenuItem.Visible = true;
-            goBackToolStripMenuItem.Visible = false;
-        }
-
-        private void button4_Click(object sender, EventArgs e)
-        {
-            CaptureWebcamImage();
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            if (isWebcamRunning)
+            try
             {
-                StopWebcam();
-            }
+                if (!isWebcamRunning)
+                {
+                    frame = new Mat();
+                    capture = new VideoCapture(0); // 0 for default camera
 
-            if (frame != null && !frame.IsDisposed)
+                    if (capture.IsOpened())
+                    {
+                        // Only show camera view if not in subtraction mode
+                        if (!isInSubtractionMode)
+                        {
+                            pictureBox1.Visible = false;
+                            pictureBox2.Visible = false;
+                        }
+
+                        pictureBox6.Visible = true;
+                        pictureBox7.Visible = true;
+                        button4.Visible = true;
+
+                        webcamTimer.Start();
+                        isWebcamRunning = true;
+                        MessageBox.Show("Webcam started successfully!", "Success",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to open webcam!", "Error",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+            catch (Exception ex)
             {
-                frame.Dispose();
+                MessageBox.Show("Error starting webcam: " + ex.Message, "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-
-            base.OnFormClosing(e);
         }
 
         private void stopWebcamToolStripMenuItem_Click_1(object sender, EventArgs e)
         {
-            StopWebcam();
+            if (isWebcamRunning)
+            {
+                webcamTimer.Stop();
+
+                if (capture != null)
+                {
+                    capture.Dispose();
+                }
+
+                if (frame != null)
+                {
+                    frame.Dispose();
+                }
+
+                isWebcamRunning = false;
+
+                pictureBox6.Image = null;
+                pictureBox6.Visible = false;
+                pictureBox7.Visible = false;
+                button4.Visible = false;
+
+                // Only show normal view if not in subtraction mode
+                if (!isInSubtractionMode)
+                {
+                    pictureBox1.Visible = true;
+                    pictureBox2.Visible = true;
+                }
+
+                MessageBox.Show("Webcam stopped!", "Success",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            // Capture image from webcam
+            if (pictureBox6.Image != null)
+            {
+                // Convert to compatible format for processing
+                Bitmap tempBitmap = new Bitmap(pictureBox6.Image);
+                capturedImage = ConvertToCompatibleBitmap(tempBitmap);
+                tempBitmap.Dispose();
+
+                // Display captured image in pictureBox7
+                pictureBox7.Image = capturedImage;
+
+                // Also set as loaded for filter processing
+                loaded = (Bitmap)capturedImage.Clone();
+                originalImage = (Bitmap)loaded.Clone();
+
+                MessageBox.Show("Image captured! Apply filters from Process or Convolution Filters menu. The result will appear in pictureBox7.",
+                    "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("No webcam image to capture!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void pictureBox1_Click(object sender, EventArgs e)
+        {
+            // Add any click handling if needed
+        }
+
+        // Cleanup on form closing
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (isWebcamRunning)
+            {
+                webcamTimer.Stop();
+                if (capture != null)
+                {
+                    capture.Dispose();
+                }
+                if (frame != null)
+                {
+                    frame.Dispose();
+                }
+            }
+            base.OnFormClosing(e);
         }
     }
 }
